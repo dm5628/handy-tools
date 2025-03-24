@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<!--Elevation getter 0.1
+<!--Elevation Finder 0.2
 	March 24, 2025
+	0.1: First version
+	0.2: Adds "use current location" button
 -->
 
 <html lang="en">
@@ -8,14 +10,41 @@
 		<style>
 			body {
 			  font-size: 0.75 rem;
+			  margin-left:1rem;
+			  margin-right:1rem;
 			}
-
+			
+			button {
+				margin-left:1rem;
+				width:25%;
+				min-width: 5rem;
+				max-width: 15rem;
+			}
+			
+			input {
+				width:65%;
+				min-width: 17rem;
+				max-width: 50rem;
+			}
+			
+			.inputblock {
+				display:flex;
+				align-items:center;
+			}
 		</style>
 	</head>
-	<title>Elevation Finder 0.1</title>
-	<body font-size:0.5rem>
-			Enter a comma-separated latitude and longitude in decimal degrees (e.g., pasted coordinates from Google Maps): <br>
-			<input type="text" id="latlongstring" size="50" step="any" placeholder="e.g., 49.5, -120.5" oninput="getElevationData()"><br><br>
+	
+	<title>Elevation Finder 0.2</title>
+	
+	<body>
+			<br/>
+			Enter a comma-separated latitude and longitude in decimal degrees (e.g., pasted coordinates from Google Maps): <br/><br/>
+			<div class="inputblock">
+				<input type="text" id="latlongstring" step="any" placeholder="e.g., 49.5, -120.5" oninput="getElevationData()">
+				
+				<button id="find-me">Use my current location</button><br />
+			</div>
+			<p id="status"></p>
 
 		<div id="elevationData"></div>
 		<br/>
@@ -60,6 +89,33 @@
 						document.getElementById("elevationData").innerHTML = "Error fetching data.";
 					});
 			}
+			
+			function geoFindMe() {
+			  const status = document.querySelector("#status");
+
+			  function success(position) {
+				const latitude = position.coords.latitude;
+				const longitude = position.coords.longitude;
+
+				status.textContent = `Latitude: ${latitude} Longitude: ${longitude}`;
+				document.getElementById("latlongstring").value = `${latitude},${longitude}`;
+				getElevationData();
+			  }
+
+			  function error() {
+				status.textContent = "Unable to retrieve your location";
+			  }
+
+			  if (!navigator.geolocation) {
+				status.textContent = "Geolocation is not supported by your browser";
+			  } else {
+				status.textContent = "Locating…";
+				navigator.geolocation.getCurrentPosition(success, error);
+			  }
+			}
+
+			document.querySelector("#find-me").addEventListener("click", geoFindMe);
+
 		</script>
 	</body>
 </html>
