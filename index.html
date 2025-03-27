@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<!--Elevation Finder 0.2
+<!--Elevation Finder 0.3
 	March 24, 2025
 	0.1: First version
 	0.2: Adds "use current location" button
+	0.3: Add nearest weather forecast
 -->
 
 <html lang="en">
@@ -37,20 +38,29 @@
 	<title>Elevation Finder 0.2</title>
 	
 	<body>
-			<br/>
-			Enter a comma-separated latitude and longitude in decimal degrees (e.g., pasted coordinates from Google Maps): <br/><br/>
-			<div class="inputblock">
-				<input type="text" id="latlongstring" step="any" placeholder="e.g., 49.5, -120.5" oninput="getElevationData()">
-				
-				<button id="find-me">Use my current location</button><br />
-			</div>
-			<p id="status"></p>
-
+		<br/>
+		Enter a comma-separated latitude and longitude in decimal degrees (e.g., pasted coordinates from Google Maps): <br/><br/>
+		<div class="inputblock">
+			<input type="text" id="latlongstring" step="any" placeholder="e.g., 49.5, -120.5" oninput="getElevationData()">
+			
+			<button id="find-me">Use my current location</button><br />
+		</div>
+		<br/>
+		<div id="latlongdisplay"></div>
+		<br/>
 		<div id="elevationData"></div>
 		<br/>
 		<div id="elevationURL"></div>
 		<br/>
 		<div id="citation"></div>
+		<br/>
+		<div id="weatherData" style="display:none">
+			<hr/>
+			<a id="weatherLink">Nearest Weather Forecast</a>
+			</div>
+			</br>
+		<br/>
+
 
 		<script>
 			function getElevationData() {
@@ -80,6 +90,9 @@
 							`;
 							document.getElementById("elevationURL").innerHTML = `Link for data QA/QC: <a href=${url}>${url}</a>`;
 							document.getElementById("citation").innerHTML = `Suggested citation: Natural Resources Canada (NRC). ${currentyear}. Canadian Digital Elevation Model (via Elevation API). Available at: <a href="https://natural-resources.canada.ca/science-data/data-analysis/geospatial-data-portals-tools-services/elevation-api">https://natural-resources.canada.ca/science-data/data-analysis/geospatial-data-portals-tools-services/elevation-api</a>. Accessed ${currentmonth} ${currentyear}.`;
+							document.getElementById("latlongdisplay").innerHTML = `Location: ${lat}, ${lon}`;
+							document.getElementById("weatherData").style.display = "inline";
+							document.getElementById("weatherLink").setAttribute("href", `https://weather.gc.ca/en/location/index.html?coords=${lat},${lon}`);
 						} else {
 							document.getElementById("elevationData").innerHTML = "No elevation data available.";
 						}
@@ -91,25 +104,29 @@
 			}
 			
 			function geoFindMe() {
-			  const status = document.querySelector("#status");
+			  //const status = document.querySelector("#status");
 
 			  function success(position) {
 				const latitude = position.coords.latitude;
 				const longitude = position.coords.longitude;
 
-				status.textContent = `Latitude: ${latitude} Longitude: ${longitude}`;
+				//status.textContent = `Latitude: ${latitude} Longitude: ${longitude}`;
 				document.getElementById("latlongstring").value = `${latitude},${longitude}`;
+				document.getElementById("latlongdisplay").value = `Location: ${latitude}, ${longitude}`;
+				document.getElementById("weatherData").style.display = "inline";
+				document.getElementById("weatherLink").setAttribute("href", `https://weather.gc.ca/en/location/index.html?coords=${latitude},${longitude}`);
+
 				getElevationData();
 			  }
 
 			  function error() {
-				status.textContent = "Unable to retrieve your location";
+				//status.textContent = "Unable to retrieve your location";
 			  }
 
 			  if (!navigator.geolocation) {
-				status.textContent = "Geolocation is not supported by your browser";
+				//status.textContent = "Geolocation is not supported by your browser";
 			  } else {
-				status.textContent = "Locating…";
+				//status.textContent = "Locating…";
 				navigator.geolocation.getCurrentPosition(success, error);
 			  }
 			}
