@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<!--Elevation Finder 0.3
+<!--Elevation Finder 0.4
 	March 24, 2025
 	0.1: First version
 	0.2: Adds "use current location" button
 	0.3: Add nearest weather forecast
+	0.4: Add nearest climate data and some input validation
 -->
 
 <html lang="en">
@@ -35,7 +36,7 @@
 		</style>
 	</head>
 	
-	<title>Elevation Finder 0.3</title>
+	<title>Elevation Finder 0.4</title>
 	
 	<body>
 		<br/>
@@ -45,88 +46,118 @@
 			
 			<button id="find-me">Use my current location</button><br />
 		</div>
+		<div id="statusContainer">
+			<br/>
+			<div id="status"></div>
+		</div>
 		<br/>
-		<div id="latlongdisplay"></div>
-		<br/>
-		<div id="elevationData"></div>
-		<br/>
-		<div id="elevationURL"></div>
-		<br/>
-		<div id="citation"></div>
-		<br/>
-		<div id="weatherData" style="display:none">
-			<hr/>
-			<a id="weatherLink">Nearest Weather Forecast</a>
+		<div id="dataContainer">
+			<div id="latlongdisplay"></div>
+			<br/>
+			<div id="elevationData"></div>
+			<br/>
+			<div id="elevationURL"></div>
+			<br/>
+			<div id="citation"></div>
+			<br/>
+			<div id="weatherData" style="display:none">
+				<hr/>
+				<a id="weatherLink">Nearest Weather Forecast</a><br/>
+				<a id="climateLink">Historical climate data</a><br/>
 			</div>
-			</br>
-		<br/>
-
+			<br/>
+		</div>
 
 		<script>
+		
+			const status = document.querySelector("#status");
+			
 			function getElevationData() {
 			
+				// Parse the comma-separated lat/long into its parts, and trim whitespace
 				const latlong = document.getElementById("latlongstring").value.split(",");			
+				
+				// Check if the input is valid (i.e., there are exactly two values after splitting by comma)
+				if (latlong.length !== 2 || !latlong[0].trim() || !latlong[1].trim()) {
+					// Silently return because the user might still be typing
+					return;
+				}
+				
 				const lat = latlong[0].trim();
 				const lon = latlong[1].trim();
 				
-				// Build the URL with the latitude and longitude from the inputs
-				const url = `https://geogratis.gc.ca/services/elevation/cdem/altitude?lat=${lat}&lon=${lon}`;
+				// Check if latitude and longitude are valid numbers
+				if (isNaN(lat) || isNaN(lon)) {
+					// Silently return because the user might still be typing
+					return;
+				}
 				
+				// Get the date and date parts
 				const date = new Date();
-				
 				const currentyear = date.getFullYear();
 				const currentmonth = date.toLocaleString('default', { month: 'long' });
+				const currentmonth_short = date.getMonth() + 1;
+				const dayOfMonth = date.getDate();
 				
+				// Build the elevation, weather, and climate URLs with the latitude and longitude from the inputs
+				const elevationURL = `https://geogratis.gc.ca/services/elevation/cdem/altitude?lat=${lat}&lon=${lon}`;
+				const weatherURL = `https://weather.gc.ca/en/location/index.html?coords=${lat},${lon}`;
+				const climateURL = `https://climate.weather.gc.ca/historical_data/search_historic_data_stations_e.html?searchType=stnProx&timeframe=1&txtRadius=25&selCity=&selPark=&txtCentralLatDeg=&txtCentralLatMin=&txtCentralLatSec=&txtCentralLongDeg=&txtCentralLongMin=&txtCentralLongSec=&optProxType=decimal&txtLatDecDeg=${lat}&txtLongDecDeg=${lon}&optLimit=yearRange&StartYear=1840&EndYear=${currentyear}&Year=${currentyear}&Month=${currentmonth_short}&Day=${dayOfMonth}&selRowPerPage=25`;
 				
 				// Fetch data from the API
-				fetch(url)
+				fetch(elevationURL)
 					.then(response => response.json())  // Parse the JSON response
 					.then(data => {
 						// Check if the response contains the expected 'altitude' field
 						if (data && data.altitude) {
 							// Display the parsed altitude data
-							document.getElementById("elevationData").innerHTML = `
-								<strong>Elevation: ${data.altitude} meters</strong>
-							`;
-							document.getElementById("elevationURL").innerHTML = `Link for data QA/QC: <a href=${url}>${url}</a>`;
+							document.getElementById("statusContainer").style.display = "none";
+							document.getElementById("dataContainer").style.display = "inline";
+							
+							document.getElementById("elevationData").innerHTML = `<strong>Elevation: ${data.altitude} meters</strong>`;
+							document.getElementById("elevationURL").innerHTML = `Link for data QA/QC: <a href=${elevationURL}>${elevationURL}</a>`;
 							document.getElementById("citation").innerHTML = `Suggested citation: Natural Resources Canada (NRC). ${currentyear}. Canadian Digital Elevation Model (via Elevation API). Available at: <a href="https://natural-resources.canada.ca/science-data/data-analysis/geospatial-data-portals-tools-services/elevation-api">https://natural-resources.canada.ca/science-data/data-analysis/geospatial-data-portals-tools-services/elevation-api</a>. Accessed ${currentmonth} ${currentyear}.`;
 							document.getElementById("latlongdisplay").innerHTML = `Location: ${lat}, ${lon}`;
-							document.getElementById("weatherData").style.display = "inline";
-							document.getElementById("weatherLink").setAttribute("href", `https://weather.gc.ca/en/location/index.html?coords=${lat},${lon}`);
+							document.getElementById("weatherLink").setAttribute("href", `${weatherURL}`);
+							document.getElementById("climateLink").setAttribute("href", `${climateURL}`);
 						} else {
-							document.getElementById("elevationData").innerHTML = "No elevation data available.";
+							document.getElementById("statusContainer").style.display = "inline";
+							status.textContent = "No elevation data available.";
+							document.getElementById("dataContainer").style.display = "none";
 						}
 					})
 					.catch(error => {
 						console.error("Error fetching data:", error);
-						document.getElementById("elevationData").innerHTML = "Error fetching data.";
+						status.textContent = "Error fetching data.";
 					});
 			}
 			
 			function geoFindMe() {
-			  //const status = document.querySelector("#status");
 
 			  function success(position) {
 				const latitude = position.coords.latitude;
 				const longitude = position.coords.longitude;
 
-				//status.textContent = `Latitude: ${latitude} Longitude: ${longitude}`;
+				document.getElementById("statusContainer").style.display = "none";
 				document.getElementById("latlongstring").value = `${latitude},${longitude}`;
-				document.getElementById("latlongdisplay").value = `Location: ${latitude}, ${longitude}`;
-				document.getElementById("weatherData").style.display = "inline";
-				document.getElementById("weatherLink").setAttribute("href", `https://weather.gc.ca/en/location/index.html?coords=${latitude},${longitude}`);
-
+				document.getElementById("latlongdisplay").innerHTML = `Location: ${latitude}, ${longitude}`;
+				
 				getElevationData();
 			  }
 
 			  function error() {
-				//status.textContent = "Unable to retrieve your location";
+			  document.getElementById("statusContainer").style.display = "inline";
+				status.textContent = "Unable to retrieve your location";
+				document.getElementById("dataContainer").style.display = "none";
 			  }
 
 			  if (!navigator.geolocation) {
-				//status.textContent = "Geolocation is not supported by your browser";
+				document.getElementById("statusContainer").style.display = "inline";
+				status.textContent = "Geolocation is not supported by your browser";
+				document.getElementById("dataContainer").style.display = "none";
 			  } else {
-				//status.textContent = "Locating…";
+				document.getElementById("statusContainer").style.display = "inline";
+				status.textContent = "Locating…";
 				navigator.geolocation.getCurrentPosition(success, error);
 			  }
 			}
