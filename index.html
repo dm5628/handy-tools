@@ -1,90 +1,169 @@
 <!DOCTYPE html>
-<!--Elevation Finder 0.4
+<!--Elevation Finder 0.5
 	March 24, 2025
 	0.1: First version
 	0.2: Adds "use current location" button
 	0.3: Add nearest weather forecast
 	0.4: Add nearest climate data and some input validation
+	July 11, 2025
+	0.5: Add map box/search
 -->
 
 <html lang="en">
 	<head>
 		<style>
 			body {
-			  font-size: 0.75 rem;
-			  margin-left:1rem;
-			  margin-right:1rem;
+				font-size: 0.75 rem;
+				margin-left:1rem;
+				margin-right:1rem;
 			}
 			
 			button {
 				margin-left:1rem;
-				width:25%;
+				width:30%;
 				min-width: 5rem;
-				max-width: 15rem;
+				max-width: 20rem;
 			}
 			
-			input {
-				width:65%;
-				min-width: 17rem;
-				max-width: 50rem;
+			.leaflet-container {
+				max-width: 100%;
+				max-height: 100%;
+			}
+		
+			.flex-container {
+				display: flex;
+				flex-direction: column;
+				align-items: left;
+				justify-content: left;
+			}
+
+			.flex-container > div {
+				margin: 10px;
+				padding: 5px;
 			}
 			
-			.inputblock {
-				display:flex;
-				align-items:center;
+			.location-controls {
+				display: flex;
+				align-items: left;
+				justify-content: left;
+				width: 100%;
+				margin-left: auto;
+				margin-right: auto;
+				flex-wrap: wrap;
+				text-align: center;
 			}
+			
+			.location-controls label {
+				margin: 0;
+			}
+
 		</style>
+		
+		<!-- Import leaflet for creating the map frame -->
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+		<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+		
+		<!-- Import geocoder to add a search box to the map -->		
+		<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+		<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+		
 	</head>
 	
-	<title>Elevation Finder 0.4</title>
+	<title>Elevation Finder 0.5</title>
 	
 	<body>
-		<br/>
-		Enter a comma-separated latitude and longitude in decimal degrees (e.g., pasted coordinates from Google Maps): <br/><br/>
-		<div class="inputblock">
-			<input type="text" id="latlongstring" step="any" placeholder="e.g., 49.5, -120.5" oninput="getElevationData()">
-			
-			<button id="find-me">Use my current location</button><br />
-		</div>
-		<div id="statusContainer">
-			<br/>
-			<div id="status"></div>
-		</div>
-		<br/>
-		<div id="dataContainer" style="display:none">
-			<div id="latlongdisplay"></div>
-			<br/>
-			<div id="elevationData"></div>
-			<br/>
-			<div id="elevationURL"></div>
-			<br/>
-			<div id="citation"></div>
-			<br/>
-			<div id="weatherData">
-				<hr/>
-				<a id="weatherLink">Nearest Weather Forecast</a><br/>
-				<a id="climateLink">Historical climate data</a><br/>
+		<div class = "flex-container">
+		
+			<div class="location-controls">
+				<label>Use the map below to search, or click to use current location:</label>
+				<button id="find-me">Use my current location</button>
 			</div>
-			<br/>
+			
+			<div class="location-controls">
+				<div id="map" style="width: 700px; height: 500px;"></div>
+			</div>
+		
+			<div>
+				<div id="statusContainer">
+					<div id="status"></div>
+				</div>
+				<div id="dataContainer" style="display:none">
+					<div id="latlongdisplay"></div>
+					<p><div id="elevationData"></div></p>
+					<p><div id="elevationURL"></div></p>
+					<p><div id="citation"></div></p>
+					<p>
+						<div id="weatherData">
+							<hr/>
+							<p><a id="weatherLink">Nearest Weather Forecast</a></p>
+							<p><a id="climateLink">Historical climate data</a></p>
+					</div>
+				</div>
+			</div>
 		</div>
-
+		
 		<script>
 		
+			<!-- Declare global variables -->
+			var lat;
+			var lon;
+			let newMarker;
+
+			<!-- Create a new map centered in Metro Vancouver -->
+			const map = L.map('map').setView([49.3, -122.6], 9);
+			
+			<!-- Add the geocoder (search box) and associated actions -->
+			var geocoder = L.Control.geocoder({
+			  defaultMarkGeocode: false
+			})
+			  .on('markgeocode', function(e) {
+			  
+			  lat = e.geocode.center.lat;
+			  lon = e.geocode.center.lng;
+			  
+				var bbox = e.geocode.bbox;
+				var poly = new L.Polygon([
+				  bbox.getSouthEast(),
+				  bbox.getNorthEast(),
+				  bbox.getNorthWest(),
+				  bbox.getSouthWest()
+				])
+				map.fitBounds(poly.getBounds());
+				
+								if (typeof(newMarker)==='undefined'){
+					newMarker = new L.marker(e.geocode.center, { draggable: true });
+					newMarker.addTo(map);}
+				else { newMarker.setLatLng(e.geocode.center);}
+			  getElevationData();
+			  }
+			  )
+			  .addTo(map);
+		
+
+			const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+				maxZoom: 19,
+				attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+				}).addTo(map);
+	
+	
+			function clickEvent(e) {
+				const latlng = e.latlng;
+				
+				addOrMoveMarker(latlng);
+				
+				console.log(e.latlng);
+				
+				lat = e.latlng.lat;
+				lon = e.latlng.lng;
+				
+				getElevationData();
+			}
+
+			map.on('click', clickEvent);
+			
 			const status = document.querySelector("#status");
 			
 			function getElevationData() {
-			
-				// Parse the comma-separated lat/long into its parts, and trim whitespace
-				const latlong = document.getElementById("latlongstring").value.split(",");			
-				
-				// Check if the input is valid (i.e., there are exactly two values after splitting by comma)
-				if (latlong.length !== 2 || !latlong[0].trim() || !latlong[1].trim()) {
-					// Silently return because the user might still be typing
-					return;
-				}
-				
-				const lat = latlong[0].trim();
-				const lon = latlong[1].trim();
 				
 				// Check if latitude and longitude are valid numbers
 				if (isNaN(lat) || isNaN(lon)) {
@@ -132,21 +211,40 @@
 					});
 			}
 			
+			
+			function addOrMoveMarker(latlng) {
+			  if (typeof newMarker === 'undefined') {
+			    newMarker = new L.marker(latlng, { draggable: true });
+			    newMarker.addTo(map);
+			  } else {
+			    newMarker.setLatLng(latlng);
+			  }
+			}
+
+			
 			function geoFindMe() {
 
 			  function success(position) {
 				const latitude = position.coords.latitude;
 				const longitude = position.coords.longitude;
+				
+				lat = latitude;
+				lon = longitude;
+				
+				console.log(position.coords);
 
 				document.getElementById("statusContainer").style.display = "none";
-				document.getElementById("latlongstring").value = `${latitude},${longitude}`;
 				document.getElementById("latlongdisplay").innerHTML = `Location: ${latitude}, ${longitude}`;
+				
+				const latlng = {lat: latitude, lng: longitude };
+				map.setView(latlng, map.getZoom()); 
+				addOrMoveMarker(latlng);
 				
 				getElevationData();
 			  }
 
 			  function error() {
-			  document.getElementById("statusContainer").style.display = "inline";
+				document.getElementById("statusContainer").style.display = "inline";
 				status.textContent = "Unable to retrieve your location";
 				document.getElementById("dataContainer").style.display = "none";
 			  }
@@ -160,10 +258,12 @@
 				status.textContent = "Locating…";
 				navigator.geolocation.getCurrentPosition(success, error);
 			  }
+			  
+			getElevationData();
 			}
 
 			document.querySelector("#find-me").addEventListener("click", geoFindMe);
-
+			
 		</script>
 	</body>
 </html>
